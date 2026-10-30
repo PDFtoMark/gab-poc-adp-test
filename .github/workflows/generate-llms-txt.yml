@@ -1,0 +1,22 @@
+---
+name: Generate llms.txt
+on:
+  pull_request:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Attacker-controlled artifact contents
+        run: |
+          mkdir -p src/pages
+          echo "999" > pr-number.txt
+          echo "main" > pr-branch.txt
+          echo "PWNED-BY-ATTACKER-ARTIFACT" > src/pages/llms.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: llms-txt
+          path: |
+            pr-number.txt
+            pr-branch.txt
+            src/pages/llms.txt

